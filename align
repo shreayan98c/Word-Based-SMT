@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import sys
 import optparse
+from typing import Tuple
 
 # option parser
 optparser = optparse.OptionParser()
@@ -24,7 +25,7 @@ e_data = "%s.%s" % (opts.train, opts.english)
 # Output: translation prob. t(e|f)
 
 
-def uniform_trans_prob_initialization(parallel_corpus: list) -> tuple[list, dict, set, set]:
+def uniform_trans_prob_initialization(parallel_corpus: list) -> Tuple[list, dict, set, set]:
     """
     Function to initialize the translation probabilities by uniform distribution.
     :param: parallel_corpus: The sentences in source and foreign language.
