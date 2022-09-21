@@ -111,7 +111,7 @@ if __name__ == '__main__':
 
     n_iterations = opts.iterations
     full_parallel_corpus = [[sentence.lower().strip().split() for sentence in pair] for pair in
-                            zip(open(f_data), open(e_data))][:opts.num_sents]
+                            zip(open(f_data), open(e_data))]#[:opts.num_sents]
     parallel_corpus, trans_probs, f_vocab, e_vocab = uniform_trans_prob_initialization(full_parallel_corpus)
     trans_probs = converge_and_optimize(parallel_corpus, f_vocab, e_vocab, trans_probs, n_iterations)
 
@@ -121,13 +121,15 @@ if __name__ == '__main__':
             # finding the word with the max probability to the given source language word
             max_prob_word, max_prob, max_prob_idx, ct_max = "", 0, 0, 0
             for e_i, e_word in enumerate(e_sent):
-                if trans_probs[e_word][f_word] > max_prob:
+                if e_word in trans_probs and f_word in trans_probs[e_word]:
+                    if trans_probs[e_word][f_word] > max_prob:
+                        max_prob_idx = e_i
+                        max_prob = trans_probs[e_word][f_word]
+                        max_prob_word = e_word
+                    elif trans_probs[e_word][f_word] == max_prob:
+                        ct_max += 1
+                else:
+                    # out of vocab for test
                     max_prob_idx = f_i
-                    max_prob = trans_probs[e_word][f_word]
-                    max_prob_word = e_word
-                elif trans_probs[e_word][f_word] == max_prob:
-                    ct_max += 1
             sys.stdout.write("%i-%i " % (f_i, max_prob_idx))
-            # print(f'{f_word}, {max_prob_word}')
-            # print(f_i, max_prob_idx)
         sys.stdout.write("\n")

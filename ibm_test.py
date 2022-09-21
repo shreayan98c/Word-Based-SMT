@@ -123,7 +123,7 @@ if __name__ == '__main__':
             for e_i, e_word in enumerate(e_sent):
                 if e_word in trans_probs and f_word in trans_probs[e_word]:
                     if trans_probs[e_word][f_word] > max_prob:
-                        max_prob_idx = f_i
+                        max_prob_idx = e_i
                         max_prob = trans_probs[e_word][f_word]
                         max_prob_word = e_word
                     elif trans_probs[e_word][f_word] == max_prob:
