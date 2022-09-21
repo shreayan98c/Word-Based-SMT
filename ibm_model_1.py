@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import sys
 import optparse
-from collections import defaultdict
 
 # option parser
 optparser = optparse.OptionParser()
@@ -109,13 +108,13 @@ def converge_and_optimize(parallel_corpus: list, f_vocab: set, e_vocab: set, tra
 
 if __name__ == '__main__':
 
-    n_iterations = 1000
+    n_iterations = opts.iterations
     parallel_corpus = [[sentence.lower().strip().split() for sentence in pair] for pair in
                        zip(open(f_data), open(e_data))][:opts.num_sents]
     parallel_corpus, trans_probs, f_vocab, e_vocab = uniform_trans_prob_initialization(parallel_corpus)
     trans_probs = converge_and_optimize(parallel_corpus, f_vocab, e_vocab, trans_probs, n_iterations)
 
-    # Predicting on given data
+    # predicting on given data
     for n, (f_sent, e_sent) in enumerate(parallel_corpus):
         for f_i, f_word in enumerate(f_sent):
             # finding the word with the max probability to the given source language word
@@ -130,5 +129,4 @@ if __name__ == '__main__':
             sys.stdout.write("%i-%i " % (f_i, max_prob_idx))
             # print(f'{f_word}, {max_prob_word}')
             # print(f_i, max_prob_idx)
-        # print("\n")
         sys.stdout.write("\n")
