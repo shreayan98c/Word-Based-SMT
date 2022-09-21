@@ -8,7 +8,7 @@ optparser.add_option("-d", "--data", dest="train", default="data/hansards", help
 # optparser.add_option("-d", "--data", dest="train", default="data/test", help="Data filename prefix (default=data)")
 optparser.add_option("-e", "--english", dest="english", default="e", help="Suffix of English filename (default=e)")
 optparser.add_option("-f", "--french", dest="french", default="f", help="Suffix of French filename (default=f)")
-optparser.add_option("-i", "--iterations", dest="iterations", default=1000, type="int",
+optparser.add_option("-i", "--iterations", dest="iterations", default=5, type="int",
                      help="Number of iterations to train the IBM Model 1 + EM Algo on (default=1000)")
 optparser.add_option("-n", "--num_sentences", dest="num_sents", default=100000000000, type="int",
                      help="Number of sentences to use for training and alignment")
@@ -30,6 +30,7 @@ def uniform_trans_prob_initialization(parallel_corpus: list) -> tuple[list, dict
     :param: parallel_corpus: The sentences in source and foreign language.
     :return: initial translation probabilities, f_vocab, e_vocab
     """
+    parallel_corpus = parallel_corpus[: opts.num_sents]
     e_vocab = set()
     f_vocab = set()
     trans_probs = dict()
@@ -109,13 +110,13 @@ def converge_and_optimize(parallel_corpus: list, f_vocab: set, e_vocab: set, tra
 if __name__ == '__main__':
 
     n_iterations = opts.iterations
-    parallel_corpus = [[sentence.lower().strip().split() for sentence in pair] for pair in
-                       zip(open(f_data), open(e_data))][:opts.num_sents]
-    parallel_corpus, trans_probs, f_vocab, e_vocab = uniform_trans_prob_initialization(parallel_corpus)
+    full_parallel_corpus = [[sentence.lower().strip().split() for sentence in pair] for pair in
+                            zip(open(f_data), open(e_data))][:opts.num_sents]
+    parallel_corpus, trans_probs, f_vocab, e_vocab = uniform_trans_prob_initialization(full_parallel_corpus)
     trans_probs = converge_and_optimize(parallel_corpus, f_vocab, e_vocab, trans_probs, n_iterations)
 
     # predicting on given data
-    for n, (f_sent, e_sent) in enumerate(parallel_corpus):
+    for n, (f_sent, e_sent) in enumerate(full_parallel_corpus):
         for f_i, f_word in enumerate(f_sent):
             # finding the word with the max probability to the given source language word
             max_prob_word, max_prob, max_prob_idx, ct_max = "", 0, 0, 0

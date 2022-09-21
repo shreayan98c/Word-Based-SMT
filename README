@@ -1,0 +1,17 @@
+How to run the program
+
+1. Goto terminal and run the program
+python align -n 1000 -i 5 > alignment
+
+Parameters for align:
+-d or --data: Data filename prefix (default=data)
+-e or --english: Suffix of English filename (default=e)
+-f or --french: Suffix of French filename (default=f)
+-i or --iterations: Number of iterations to train the IBM Model 1 + EM Algo on (default=5)
+-n or --num_sentences: Number of sentences to use for training and alignment (default=1000000)
+
+2. To calculate the score, run:
+python score-alignments < alignment
+
+3. If the above statement gives an error (in some version of windows, it throws an error), then try
+Get-Content alignment | python score-alignments
