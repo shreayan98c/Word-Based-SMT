@@ -20,10 +20,10 @@ Get-Content alignment | python score-alignments
 
 ------------------------------------------------------------------------------------------------------------------------
 
-Symmetrization with grow-diag and intersection, union
+Symmetrization with intersection and union
 
 1. Goto terminal and run the program
-python symmetrization.py -n 1000 -i 5 > symmetrization
+python symmetrization.py -n 1000 -i 5 -t 0.4 > symmetrization
 
 Parameters for align:
 -d or --data: Data filename prefix (default=data)
@@ -31,6 +31,7 @@ Parameters for align:
 -f or --french: Suffix of French filename (default=f)
 -i or --iterations: Number of iterations to train the IBM Model 1 + EM Algo on (default=5)
 -n or --num_sentences: Number of sentences to use for training and alignment (default=1000000)
+-t or --thresh: Threshold value for the aligning words p(e|f) and p(f|e) (default=0.5)
 
 2. To calculate the score, run:
 python score-alignments < symmetrization

@@ -3,7 +3,6 @@ import re
 import sys
 import json
 import optparse
-from typing import Tuple
 
 # option parser
 optparser = optparse.OptionParser()
@@ -13,21 +12,21 @@ optparser.add_option("-f", "--french", dest="french", default="f", help="Suffix 
 optparser.add_option("-n", "--num_sentences", dest="num_sents", default=100000000000, type="int",
                      help="Number of sentences to use for training and alignment")
 optparser.add_option("-i", "--iterations", dest="iterations", default=5, type="int",
-                     help="Number of iterations to train the IBM Model 1 + EM Algo on (default=1000)")
+                     help="Number of iterations to train the IBM Model 1 + EM Algo on (default=5)")
+optparser.add_option("-t", "--thresh", dest="threshold", default=0.5, type="int",
+                     help="Threshold value for the aligning words p(e|f) and p(f|e) (default=0.5)")
 (opts, _) = optparser.parse_args()
 
 # filepath to the data
 f_data = "%s.%s" % (opts.train, opts.french)
 e_data = "%s.%s" % (opts.train, opts.english)
 
-START_INDEX = 1
 
-
-def uniform_trans_prob_initialization(parallel_corpus: list, is_reverse: bool = False) -> Tuple[list, dict, set, set]:
+def uniform_trans_prob_initialization(parallel_corpus: list, is_reverse: bool = False) -> tuple[list, dict, set, set]:
     """
     Function to initialize the translation probabilities by uniform distribution.
     :param: parallel_corpus: The sentences in source and foreign language.
-    :param is_reverse: Whether to calculate p(e|f) or p(f|e).
+    :param: is_reverse: Whether to calculate p(e|f) or p(f|e).
     :return: initial translation probabilities, f_vocab, e_vocab
     """
     parallel_corpus = parallel_corpus[: opts.num_sents]
@@ -152,35 +151,122 @@ def converge_and_optimize(parallel_corpus: list, f_vocab: set, e_vocab: set, tra
     return trans_probs
 
 
-def generate_f2e(parallel_corpus):
+def generate_f2e(parallel_corpus: list) -> dict:
     """
     Function to generate f2e from the data
+    :param parallel_corpus: Sentences in source and target language
     :return: f2e matrix
     """
     n_iterations = opts.iterations
-    # full_parallel_corpus = [[sentence.lower().strip().split() for sentence in pair] for pair in
-    #                         zip(open(f_data), open(e_data))][:opts.num_sents]
     parallel_corpus, trans_probs, f_vocab, e_vocab = uniform_trans_prob_initialization(parallel_corpus)
     trans_probs = converge_and_optimize(parallel_corpus, f_vocab, e_vocab, trans_probs, n_iterations)
     return trans_probs
 
 
-def generate_e2f(parallel_corpus):
+def generate_e2f(parallel_corpus: list) -> dict:
     """
     Function to generate e2f from the data
+    :param parallel_corpus: Sentences in source and target language
     :return: e2f matrix
     """
     n_iterations = opts.iterations
-    # full_parallel_corpus = [[sentence.lower().strip().split() for sentence in pair] for pair in
-    #                         zip(open(f_data), open(e_data))][:opts.num_sents]
     parallel_corpus, trans_probs, f_vocab, e_vocab = uniform_trans_prob_initialization(parallel_corpus,
                                                                                        is_reverse=True)
     trans_probs = converge_and_optimize(parallel_corpus, f_vocab, e_vocab, trans_probs, n_iterations, is_reverse=True)
     return trans_probs
 
 
+def initialize_matrix(rows: int, columns: int, value: int) -> list:
+    """
+    A function that to initialize a 2d matrix of the desired shape with the given value
+    :param rows: Number of rows
+    :param rows: Number of columns
+    :param rows: Value to be populated
+    :return: e2f matrix
+    """
+    result = [[value for _ in range(columns)] for _ in range(rows)]
+    return result
+
+
+def intersection(e2f, f2e):
+    """
+    Function to find out intersection between e2f and f2e
+    :param e2f: e2f matrix calculated using IBM Model 1
+    :param f2e: f2e matrix calculated using IBM Model 1
+    :return: Intersection of the 2 matrices
+    """
+    rows = len(e2f)
+    columns = len(f2e)
+    result = initialize_matrix(rows, columns, False)
+    for e in range(rows):
+        for f in range(columns):
+            result[e][f] = e2f[e][f] and f2e[f][e]
+    return result
+
+
+def union(e2f, f2e):
+    """
+    Function to find out union between e2f and f2e
+    :param e2f: e2f matrix calculated using IBM Model 1
+    :param f2e: f2e matrix calculated using IBM Model 1
+    :return: Union of the 2 matrices
+    """
+    rows = len(e2f)
+    columns = len(f2e)
+    result = initialize_matrix(rows, columns, False)
+    for e in range(rows):
+        for f in range(columns):
+            result[e][f] = e2f[e][f] or f2e[f][e]
+    return result
+
+
+def neighboring_points(e_index: int, f_index: int, e_len: int, f_len: int) -> list:
+    """
+    A function that to find out the list of neighboring points in an alignment matrix for a given pair of indexes.
+    :param: e_index: index of e word
+    :param: f_index: index of f word
+    :param: e_len: length of e seq
+    :param: f_len: length of f seq
+    :return: List of neighbouring points
+    """
+    result = []
+
+    if e_index > 0:
+        result.append((e_index - 1, f_index))
+    if f_index > 0:
+        result.append((e_index, f_index - 1))
+    if e_index < e_len - 1:
+        result.append((e_index + 1, f_index))
+    if f_index < f_len - 1:
+        result.append((e_index, f_index + 1))
+    if e_index > 0 and f_index > 0:
+        result.append((e_index - 1, f_index - 1))
+    if e_index > 0 and f_index < f_len - 1:
+        result.append((e_index - 1, f_index + 1))
+    if e_index < e_len - 1 and f_index > 0:
+        result.append((e_index + 1, f_index - 1))
+    if e_index < e_len - 1 and f_index < f_len - 1:
+        result.append((e_index + 1, f_index + 1))
+
+    return result
+
+
+def grow_diag(union: list, alignment: list, e_len: int, f_len: int) -> None:
+    new_points_added = True
+    while new_points_added:
+        new_points_added = False
+        for e in range(e_len):
+            for f in range(f_len):
+                if alignment[e][f]:
+                    for (e_new, f_new) in neighboring_points(e, f, e_len, f_len):
+                        if union[e_new][f_new]:
+                            alignment[e_new][f_new] = True
+                            new_points_added = True
+
+
 if __name__ == '__main__':
 
+    thresh = opts.threshold
     full_parallel_corpus = [[sentence.lower().strip().split() for sentence in pair] for pair in
                             zip(open(f_data), open(e_data))]
     training_parallel_corpus = full_parallel_corpus[:opts.num_sents]
@@ -191,34 +277,22 @@ if __name__ == '__main__':
     # print(json.dumps(f2e, sort_keys=True, indent=4))
     # print(json.dumps(e2f, sort_keys=True, indent=4))
 
-    e_sentence = []
-    f_sentence = []
+    word_matches = []
+    for e_word, f_words in f2e.items():
+        for f_word, prob in f_words.items():
+            if prob > thresh:
+                word_matches.append((f_word, e_word))
 
-    final_t_prob = {}
-    for n, (f_sent, e_sent) in enumerate(full_parallel_corpus):
-        for f_word in f_sent:
-            final_t_prob[f_word] = {}
-            for e_word in e_sent:
-                final_t_prob[f_word][e_word] = (f2e[e_word][f_word] + e2f[f_word][e_word]) / 2
-                # final_t_prob[f_word][e_word] = (f2e[e_word][f_word] + e2f[f_word][e_word]) / 2
-
-    # print(json.dumps(final_t_prob, sort_keys=True, indent=4))
+    for f_word, e_words in e2f.items():
+        for e_word, prob in e_words.items():
+            if prob > thresh:
+                word_matches.append((f_word, e_word))
 
     # predicting on given data
     for n, (f_sent, e_sent) in enumerate(full_parallel_corpus):
+        # print(f_sent, e_sent)
         for f_i, f_word in enumerate(f_sent):
-            # finding the word with the max probability to the given source language word
-            max_prob_word, max_prob, max_prob_idx, ct_max = "", 0, 0, 0
             for e_i, e_word in enumerate(e_sent):
-                if e_word in final_t_prob and f_word in final_t_prob[e_word]:
-                    if final_t_prob[e_word][f_word] > max_prob:
-                        max_prob_idx = e_i
-                        max_prob = final_t_prob[e_word][f_word]
-                        max_prob_word = e_word
-                    elif final_t_prob[e_word][f_word] == max_prob:
-                        ct_max += 1
-                else:
-                    # out of vocab for test
-                    max_prob_idx = e_i
-            sys.stdout.write("%i-%i " % (f_i, max_prob_idx))
+                if f_word in e2f and e_word in e2f[f_word] and e2f[f_word][e_word] > thresh:
+                    sys.stdout.write("%i-%i " % (f_i, e_i))
         sys.stdout.write("\n")
